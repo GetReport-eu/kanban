@@ -33,6 +33,7 @@ import { useWorkspace } from "~/providers/workspace";
 import { getApiFieldError } from "~/utils/apiError";
 import { useBoardCache } from "~/utils/boardCache";
 import { createCardFromInput } from "~/utils/cardMutations";
+import { getPastedFiles } from "~/utils/clipboardFiles";
 import { formatMemberDisplayName, getAvatarUrl } from "~/utils/helpers";
 import { uploadFile } from "~/utils/uploadFile";
 
@@ -293,25 +294,10 @@ export function NewCardForm({
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
-    const files = Array.from(e.clipboardData.files);
-    // Let plain text pastes through to the inputs untouched.
-    if (files.length === 0 || e.clipboardData.types.includes("text/plain")) {
-      return;
-    }
+    const files = getPastedFiles(e.clipboardData);
+    if (files.length === 0) return;
     e.preventDefault();
-
-    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    addFiles(
-      files.map((file, index) => {
-        // Screenshots from the clipboard all arrive as "image.png".
-        if (file.name && file.name !== "image.png") return file;
-        const extension = file.type.split("/")[1] ?? "png";
-        const suffix = files.length > 1 ? `-${index + 1}` : "";
-        return new File([file], `screenshot-${stamp}${suffix}.${extension}`, {
-          type: file.type,
-        });
-      }),
-    );
+    addFiles(files);
   };
 
   const removeFile = (index: number) => {
