@@ -7,17 +7,14 @@ name: Docker
 
 on:
   push:
-    # Only trigger on tags (releases), not main branch pushes
-    # Main branch builds are handled by workflow_run after Translate completes
+    # This fork has no Translate secrets, so main builds run on push directly
+    # instead of waiting for the Translate workflow.
+    branches: ["main"]
     tags: ["v*.*.*"]
   pull_request:
     branches: ["main"]
-  workflow_run:
-    workflows: ["Translate"]
-    types: [completed]
-    branches: [main]
-    # Docker builds after Translate completes (success or failure)
-    # This ensures Docker always has the latest translations
+  # Lets you start a build by hand from the Actions tab.
+  workflow_dispatch:
 
 concurrency:
   group: docker-build-${{ github.ref }}

@@ -9,6 +9,8 @@ permissions:
 
 jobs:
   translate:
+    # Needs the upstream LINGODOTDEV_API_KEY secret; skip it in forks.
+    if: github.repository == 'kanbn/kan'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
