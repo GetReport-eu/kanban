@@ -6,16 +6,13 @@ import {
   Param,
   Post,
   Put,
-  Req,
 } from "@nestjs/common";
 import { ApiOperation, ApiParam } from "@nestjs/swagger";
 import { ZodResponse } from "nestjs-zod";
 
-import type { AuthenticatedRequest } from "../../common/interfaces/request.interface.js";
 import type { User } from "../../common/interfaces/user.interface.js";
 import { AuthenticatedController } from "../../common/decorators/authenticated-controller.decorator.js";
 import { CurrentUser } from "../../common/decorators/current-user.decorator.js";
-import { headersFromRaw } from "../../common/session.util.js";
 import {
   AcceptInviteLinkDto,
   AcceptInviteLinkResponseDto,
@@ -46,13 +43,11 @@ export class WorkspaceMemberController {
     @CurrentUser() user: User,
     @Param("workspacePublicId") workspacePublicId: string,
     @Body() input: InviteMemberDto,
-    @Req() req: AuthenticatedRequest,
   ): Promise<MemberInviteResponseDto> {
     return this.memberService.invite({
       workspacePublicId,
       email: input.email,
       userId: user.id,
-      headers: headersFromRaw(req.headers),
     });
   }
 

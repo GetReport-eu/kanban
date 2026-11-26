@@ -126,3 +126,23 @@ export const update = async (
 
   return result;
 };
+
+/**
+ * The user's most recently used account for an OAuth/OIDC provider, with the
+ * ID token it was last issued (used as `id_token_hint` on logout). Returns
+ * undefined when the user has never signed in with that provider.
+ */
+export const getLatestProviderAccount = async (
+  db: dbClient,
+  userId: string,
+  providerId: string,
+) => {
+  const [result] = await db
+    .select({ idToken: account.idToken })
+    .from(account)
+    .where(and(eq(account.userId, userId), eq(account.providerId, providerId)))
+    .orderBy(desc(account.updatedAt))
+    .limit(1);
+
+  return result;
+};

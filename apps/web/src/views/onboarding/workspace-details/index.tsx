@@ -20,7 +20,6 @@ import {
   useCreateWorkspace,
   useGetWorkspaces,
 } from "@kan/api-client/hooks";
-import { authClient } from "@kan/auth/client";
 
 import Button from "~/components/Button";
 import Input from "~/components/Input";
@@ -28,6 +27,7 @@ import LoadingSpinner from "~/components/LoadingSpinner";
 import { Tooltip } from "~/components/Tooltip";
 import { useDebounce } from "~/hooks/useDebounce";
 import { usePopup } from "~/providers/popup";
+import { signOut } from "~/utils/sign-out";
 
 function slugify(value: string) {
   return value
@@ -369,7 +369,7 @@ export default function WorkspaceNameView() {
         </div>
       </div>
       {!hasExistingWorkspace && (
-        <Button variant="ghost" onClick={() => authClient.signOut()}>
+        <Button variant="ghost" onClick={() => void signOut()}>
           {t`Sign out`}
         </Button>
       )}

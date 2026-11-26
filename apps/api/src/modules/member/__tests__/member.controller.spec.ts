@@ -20,7 +20,6 @@ const mockMemberService = {
   acceptInviteLink: vi.fn(),
 };
 const user = { id: "user_1", email: "henry@kan.bn" };
-const fakeRequest = { headers: { cookie: "session=abc" } };
 
 let workspaceController: WorkspaceMemberController;
 let inviteController: InviteController;
@@ -44,26 +43,22 @@ beforeEach(async () => {
 });
 
 describe("WorkspaceMemberController", () => {
-  it("passes the current user's id, path param, body and request headers through to invite", async () => {
+  it("passes the current user's id, path param and body through to invite", async () => {
     mockMemberService.invite.mockResolvedValue({ publicId: "member_1" });
 
     const result = await workspaceController.invite(
       user as never,
       "workspace_12345",
       { email: "new@kan.bn" },
-      fakeRequest as never,
     );
 
     expect(result).toEqual({ publicId: "member_1" });
-    const call = mockMemberService.invite.mock.calls[0]?.[0] as {
-      headers: Headers;
-    };
+    const call = mockMemberService.invite.mock.calls[0]?.[0];
     expect(call).toMatchObject({
       workspacePublicId: "workspace_12345",
       email: "new@kan.bn",
       userId: "user_1",
     });
-    expect(call.headers).toBeInstanceOf(Headers);
   });
 
   it("passes the current user's id and path params through to delete", async () => {

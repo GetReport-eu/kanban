@@ -28,7 +28,7 @@ import {
 import { updateSubscriptionSeats } from "@kan/stripe";
 
 import { assertFound } from "../../common/assert-found.util.js";
-import { db, sendMagicLinkInvite } from "../../common/session.util.js";
+import { db } from "../../common/session.util.js";
 
 const log = createLogger("member");
 
@@ -40,7 +40,6 @@ export class MemberService {
     workspacePublicId: string;
     email: string;
     userId: string;
-    headers: Headers;
   }) {
     const workspace = await assertFound(
       workspaceRepo.getByPublicIdWithMembers(db, input.workspacePublicId),
@@ -50,7 +49,8 @@ export class MemberService {
     await assertPermission(db, input.userId, workspace.id, "member:invite");
 
     const isInvitedEmailAlreadyMember = workspace.members.some(
-      (member) => member.email === input.email,
+      (member) =>
+        member.email.toLowerCase() === input.email.trim().toLowerCase(),
     );
 
     if (isInvitedEmailAlreadyMember)
@@ -126,7 +126,8 @@ export class MemberService {
       }
     }
 
-    const existingUser = await userRepo.getByEmail(db, input.email);
+    const email = input.email.trim().toLowerCase();
+    const existingUser = await userRepo.getByEmail(db, email);
 
     const memberRole = await permissionRepo.getRoleByWorkspaceIdAndName(
       db,
@@ -134,42 +135,33 @@ export class MemberService {
       "member",
     );
 
+    // Access is granted by email alone: no invitation email or link. A user
+    // who already has an account becomes an active member immediately; an
+    // email without an account stays pending until that person first signs in
+    // (e.g. through SSO), when the sign-in hook activates the membership.
     const invite = await memberRepo.create(db, {
       workspaceId: workspace.id,
-      email: input.email,
+      email,
       userId: existingUser?.id ?? null,
       createdBy: input.userId,
       role: "member",
       roleId: memberRole?.id ?? null,
-      status: "invited",
+      status: existingUser ? "active" : "invited",
     });
 
     if (!invite)
       throw new InternalServerErrorException(
-        `Unable to invite user with email ${input.email}`,
+        `Unable to add user with email ${input.email}`,
       );
 
-    const { status } = await sendMagicLinkInvite(input.headers, {
-      email: input.email,
-      callbackURL: `/boards?type=invite&memberPublicId=${invite.publicId}`,
-    });
-
-    if (!status) {
-      log.error(
-        { email: input.email, memberPublicId: invite.publicId },
-        "Failed to send magic link invitation",
-      );
-
-      await memberRepo.softDelete(db, {
-        memberId: invite.id,
-        deletedAt: new Date(),
-        deletedBy: input.userId,
-      });
-
-      throw new InternalServerErrorException(
-        `Failed to send magic link invitation to user with email ${input.email}.`,
-      );
-    }
+    log.info(
+      {
+        memberPublicId: invite.publicId,
+        workspacePublicId: workspace.publicId,
+        activated: !!existingUser,
+      },
+      "Member added by email",
+    );
 
     return invite;
   }

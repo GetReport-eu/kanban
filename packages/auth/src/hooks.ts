@@ -24,8 +24,49 @@ type BetterAuthUser = {
   stripeCustomerId?: string | null | undefined;
 } & Record<string, unknown>;
 
+type BetterAuthSession = {
+  id: string;
+  userId: string;
+} & Record<string, unknown>;
+
+/**
+ * Activates workspace memberships that were added for this user's email
+ * before they had an account (or before they signed in). Access is granted by
+ * email alone, so signing in through SSO is all an added user has to do.
+ */
+export async function acceptPendingInvitesForUser(
+  db: dbClient,
+  userId: string,
+) {
+  try {
+    const user = await userRepo.getById(db, userId);
+    if (!user?.email) return;
+
+    const accepted = await memberRepo.acceptPendingInvitesByEmail(db, {
+      email: user.email,
+      userId,
+    });
+
+    if (accepted.length > 0) {
+      log.info(
+        { userId, count: accepted.length },
+        "Activated pending workspace memberships on sign-in",
+      );
+    }
+  } catch (error) {
+    log.error({ err: error, userId }, "Failed to activate pending memberships");
+  }
+}
+
 export function createDatabaseHooks(db: dbClient) {
   return {
+    session: {
+      create: {
+        async after(session: BetterAuthSession, _context: unknown) {
+          await acceptPendingInvitesForUser(db, session.userId);
+        },
+      },
+    },
     user: {
       create: {
         async before(user: BetterAuthUser, _context: unknown) {

@@ -1,4 +1,4 @@
-import { and, count, eq, isNull, ne, or } from "drizzle-orm";
+import { and, count, eq, isNull, ne, or, sql } from "drizzle-orm";
 
 import type { dbClient } from "@kan/db/client";
 import type { MemberRole, MemberStatus } from "@kan/db/schema";
@@ -123,7 +123,7 @@ export const getByEmailAndStatus = async (
 ) => {
   return db.query.workspaceMembers.findFirst({
     where: and(
-      eq(workspaceMembers.email, email),
+      sql`lower(${workspaceMembers.email}) = lower(${email})`,
       eq(workspaceMembers.status, status),
       isNull(workspaceMembers.deletedAt),
     ),
@@ -144,6 +144,35 @@ export const acceptInvite = async (
     });
 
   return result;
+};
+
+/**
+ * Activates every pending invitation addressed to this email (case-insensitive)
+ * and links it to the user. Used on sign-in so SSO users get access to the
+ * workspaces they were added to without clicking an invitation link.
+ */
+export const acceptPendingInvitesByEmail = async (
+  db: dbClient,
+  args: { email: string; userId: string },
+) => {
+  return db
+    .update(workspaceMembers)
+    .set({ status: "active", userId: args.userId })
+    .where(
+      and(
+        sql`lower(${workspaceMembers.email}) = lower(${args.email})`,
+        eq(workspaceMembers.status, "invited"),
+        isNull(workspaceMembers.deletedAt),
+        or(
+          isNull(workspaceMembers.userId),
+          eq(workspaceMembers.userId, args.userId),
+        ),
+      ),
+    )
+    .returning({
+      id: workspaceMembers.id,
+      publicId: workspaceMembers.publicId,
+    });
 };
 
 export const softDelete = async (

@@ -1,19 +1,17 @@
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Menu, Transition } from "@headlessui/react";
 import { t } from "@lingui/core/macro";
 import { useTheme } from "next-themes";
 import { Fragment } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { authClient } from "@kan/auth/client";
-
 import { env } from "~/env";
 import { useIsMobile } from "~/hooks/useMediaQuery";
 import { useKeyboardShortcuts } from "~/providers/keyboard-shortcuts";
 import { useModal } from "~/providers/modal";
 import { getAvatarUrl } from "~/utils/helpers";
+import { signOut } from "~/utils/sign-out";
 
 interface UserMenuProps {
   imageUrl: string | undefined;
@@ -32,7 +30,6 @@ export default function UserMenu({
   isCollapsed = false,
   onCloseSideNav,
 }: UserMenuProps) {
-  const router = useRouter();
   const { theme, setTheme } = useTheme();
   const { openModal } = useModal();
   const { openLegend } = useKeyboardShortcuts();
@@ -42,8 +39,7 @@ export default function UserMenu({
     if (onCloseSideNav && isMobile) {
       onCloseSideNav();
     }
-    await authClient.signOut();
-    router.push("/login");
+    await signOut();
   };
 
   const handleLinkClick = () => {

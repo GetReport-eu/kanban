@@ -58,6 +58,7 @@ export const env = createEnv({
     OIDC_CLIENT_ID: z.string().optional(),
     OIDC_CLIENT_SECRET: z.string().optional(),
     OIDC_DISCOVERY_URL: z.string().optional(),
+    OIDC_END_SESSION_URL: z.string().optional(),
     REDDIT_CLIENT_ID: z.string().optional(),
     REDDIT_CLIENT_SECRET: z.string().optional(),
     ROBLOX_CLIENT_ID: z.string().optional(),
