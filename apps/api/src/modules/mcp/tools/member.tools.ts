@@ -1,4 +1,3 @@
-import type { IncomingHttpHeaders } from "http";
 import { UseFilters } from "@nestjs/common";
 import { Ctx, Payload } from "@nestjs/microservices";
 import {
@@ -9,7 +8,6 @@ import {
 } from "@rekog/mcp-nest";
 import { z } from "zod";
 
-import { headersFromRaw } from "../../../common/session.util.js";
 import { UpdateMemberRoleSchema } from "../../member/dto/member.dto.js";
 import { MemberService } from "../../member/member.service.js";
 import { requireMcpUser } from "../mcp-user.util.js";
@@ -48,8 +46,7 @@ export class MemberTools {
   async inviteMember(
     @Payload() args: z.infer<typeof InviteMemberWithWorkspaceSchema>,
     @Ctx() _context: unknown,
-    @McpRawRequest()
-    rawRequest: { user?: unknown; headers?: IncomingHttpHeaders } | undefined,
+    @McpRawRequest() rawRequest: { user?: unknown } | undefined,
   ) {
     const user = requireMcpUser(rawRequest);
 
@@ -57,7 +54,6 @@ export class MemberTools {
       workspacePublicId: args.workspacePublicId,
       email: args.email,
       userId: user.id,
-      headers: headersFromRaw(rawRequest?.headers ?? {}),
     });
   }
 

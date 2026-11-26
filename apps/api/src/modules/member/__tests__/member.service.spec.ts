@@ -9,7 +9,6 @@ import * as workspaceRepo from "@kan/db/repository/workspace.repo";
 import * as permissions from "@kan/server/utils/permissions";
 import * as stripe from "@kan/stripe";
 
-import * as sessionUtil from "../../../common/session.util.js";
 import { MemberService } from "../member.service.js";
 
 const workspace = {
@@ -38,9 +37,6 @@ beforeEach(() => {
   vi.spyOn(permissions, "assertPermission").mockResolvedValue(undefined);
   vi.spyOn(permissions, "assertCanManageMember").mockResolvedValue(undefined);
   vi.spyOn(permissions, "assertCanManageRole").mockResolvedValue(undefined);
-  vi.spyOn(sessionUtil, "sendMagicLinkInvite").mockResolvedValue({
-    status: true,
-  });
   service = new MemberService();
 });
 
@@ -49,7 +45,7 @@ afterEach(() => {
 });
 
 describe("MemberService.invite", () => {
-  it("invites a new member and sends a magic link (self-hosted, no billing)", async () => {
+  it("adds an unknown email as a pending member without sending any email", async () => {
     vi.spyOn(workspaceRepo, "getByPublicIdWithMembers").mockResolvedValue(
       workspace as never,
     );
@@ -57,20 +53,53 @@ describe("MemberService.invite", () => {
     vi.spyOn(permissionRepo, "getRoleByWorkspaceIdAndName").mockResolvedValue({
       id: 9,
     } as never);
-    vi.spyOn(memberRepo, "create").mockResolvedValue({
+    const create = vi.spyOn(memberRepo, "create").mockResolvedValue({
       id: 10,
       publicId: "member_new",
     });
 
     const result = await service.invite({
       workspacePublicId: "workspace_12345",
-      email: "new@kan.bn",
+      email: " New@Kan.bn ",
       userId: "user_1",
-      headers: new Headers(),
     });
 
     expect(result).toEqual({ id: 10, publicId: "member_new" });
-    expect(sessionUtil.sendMagicLinkInvite).toHaveBeenCalled();
+    expect(create).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        email: "new@kan.bn",
+        userId: null,
+        status: "invited",
+      }),
+    );
+  });
+
+  it("activates the membership immediately when the user already has an account", async () => {
+    vi.spyOn(workspaceRepo, "getByPublicIdWithMembers").mockResolvedValue(
+      workspace as never,
+    );
+    vi.spyOn(userRepo, "getByEmail").mockResolvedValue({
+      id: "user_2",
+    } as never);
+    vi.spyOn(permissionRepo, "getRoleByWorkspaceIdAndName").mockResolvedValue({
+      id: 9,
+    } as never);
+    const create = vi.spyOn(memberRepo, "create").mockResolvedValue({
+      id: 11,
+      publicId: "member_existing",
+    });
+
+    await service.invite({
+      workspacePublicId: "workspace_12345",
+      email: "known@kan.bn",
+      userId: "user_1",
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ userId: "user_2", status: "active" }),
+    );
   });
 
   it("throws CONFLICT when the email is already a member", async () => {
@@ -83,7 +112,6 @@ describe("MemberService.invite", () => {
         workspacePublicId: "workspace_12345",
         email: "existing@kan.bn",
         userId: "user_1",
-        headers: new Headers(),
       }),
     ).rejects.toMatchObject({ status: 409 });
   });
@@ -100,7 +128,6 @@ describe("MemberService.invite", () => {
         workspacePublicId: "workspace_12345",
         email: "new@kan.bn",
         userId: "user_1",
-        headers: new Headers(),
       }),
     ).rejects.toMatchObject({ status: 404 });
   });
@@ -123,7 +150,6 @@ describe("MemberService.invite", () => {
         workspacePublicId: "workspace_12345",
         email: "new@kan.bn",
         userId: "user_1",
-        headers: new Headers(),
       }),
     ).rejects.toMatchObject({
       status: 403,
@@ -156,7 +182,6 @@ describe("MemberService.invite", () => {
       workspacePublicId: "workspace_12345",
       email: "new@kan.bn",
       userId: "user_1",
-      headers: new Headers(),
     });
 
     expect(updateSeats).toHaveBeenCalledWith("sub_123", 1);
@@ -184,7 +209,6 @@ describe("MemberService.invite", () => {
       workspacePublicId: "workspace_12345",
       email: "new@kan.bn",
       userId: "user_1",
-      headers: new Headers(),
     });
 
     expect(updateSeats).not.toHaveBeenCalled();
@@ -207,43 +231,8 @@ describe("MemberService.invite", () => {
         workspacePublicId: "workspace_12345",
         email: "new@kan.bn",
         userId: "user_1",
-        headers: new Headers(),
       }),
     ).rejects.toMatchObject({ status: 500 });
-  });
-
-  it("rolls back the member and throws when the magic link invite fails to send", async () => {
-    vi.spyOn(workspaceRepo, "getByPublicIdWithMembers").mockResolvedValue(
-      workspace as never,
-    );
-    vi.spyOn(userRepo, "getByEmail").mockResolvedValue(undefined);
-    vi.spyOn(permissionRepo, "getRoleByWorkspaceIdAndName").mockResolvedValue({
-      id: 9,
-    } as never);
-    vi.spyOn(memberRepo, "create").mockResolvedValue({
-      id: 10,
-      publicId: "member_new",
-    });
-    vi.spyOn(sessionUtil, "sendMagicLinkInvite").mockResolvedValue({
-      status: false,
-    });
-    const softDelete = vi
-      .spyOn(memberRepo, "softDelete")
-      .mockResolvedValue(undefined);
-
-    await expect(
-      service.invite({
-        workspacePublicId: "workspace_12345",
-        email: "new@kan.bn",
-        userId: "user_1",
-        headers: new Headers(),
-      }),
-    ).rejects.toMatchObject({ status: 500 });
-
-    expect(softDelete).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ memberId: 10 }),
-    );
   });
 });
 

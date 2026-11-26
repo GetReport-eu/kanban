@@ -32,26 +32,22 @@ beforeEach(async () => {
 });
 
 describe("MemberTools", () => {
-  it("passes the authenticated MCP user's id, the args, and request headers through to inviteMember", async () => {
+  it("passes the authenticated MCP user's id, and the args through to inviteMember", async () => {
     mockMemberService.invite.mockResolvedValue({ publicId: "member_1" });
 
     const result = await tools.inviteMember(
       { workspacePublicId: "workspace_12345", email: "new@kan.bn" },
       undefined,
-      { user, headers: { cookie: "session=abc" } },
+      { user },
     );
 
     expect(result).toEqual({ publicId: "member_1" });
-    const call = mockMemberService.invite.mock.calls[0]?.[0] as {
-      headers: Headers;
-    };
+    const call = mockMemberService.invite.mock.calls[0]?.[0];
     expect(call).toMatchObject({
       workspacePublicId: "workspace_12345",
       email: "new@kan.bn",
       userId: "user_1",
     });
-    expect(call.headers).toBeInstanceOf(Headers);
-    expect(call.headers.get("cookie")).toBe("session=abc");
   });
 
   it("passes the authenticated MCP user's id and the args through to removeMember", async () => {

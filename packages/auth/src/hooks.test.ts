@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as memberRepo from "@kan/db/repository/member.repo";
+import * as userRepo from "@kan/db/repository/user.repo";
 import { env } from "@kan/shared/env";
 
 import { createDatabaseHooks } from "./hooks";
@@ -13,10 +14,12 @@ vi.mock("@kan/db/repository/member.repo", () => ({
   getByEmailAndStatus: vi.fn(),
   getByPublicId: vi.fn(),
   acceptInvite: vi.fn(),
+  acceptPendingInvitesByEmail: vi.fn(),
 }));
 
 vi.mock("@kan/db/repository/user.repo", () => ({
   update: vi.fn(),
+  getById: vi.fn(),
 }));
 
 vi.mock("@kan/email", () => ({
@@ -188,5 +191,39 @@ describe("createDatabaseHooks", () => {
 
       delete process.env.BETTER_AUTH_ALLOWED_DOMAINS;
     });
+  });
+});
+
+describe("session.create.after", () => {
+  const hooks = createDatabaseHooks(
+    {} as Parameters<typeof createDatabaseHooks>[0],
+  );
+
+  it("activates pending memberships for the signed-in user's email", async () => {
+    (userRepo.getById as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "user-1",
+      email: "sso@example.com",
+    });
+    const accept = memberRepo.acceptPendingInvitesByEmail as ReturnType<
+      typeof vi.fn
+    >;
+    accept.mockResolvedValue([{ id: 1, publicId: "member_1" }]);
+
+    await hooks.session.create.after({ id: "s1", userId: "user-1" }, {});
+
+    expect(accept).toHaveBeenCalledWith(expect.anything(), {
+      email: "sso@example.com",
+      userId: "user-1",
+    });
+  });
+
+  it("does not fail the sign-in when activation throws", async () => {
+    (userRepo.getById as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error("db down"),
+    );
+
+    await expect(
+      hooks.session.create.after({ id: "s1", userId: "user-1" }, {}),
+    ).resolves.toBeUndefined();
   });
 });

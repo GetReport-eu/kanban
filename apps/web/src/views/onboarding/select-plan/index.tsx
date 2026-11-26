@@ -10,6 +10,7 @@ import { useGetUser, useGetWorkspaces } from "@kan/api-client/hooks";
 import { authClient } from "@kan/auth/client";
 
 import Button from "~/components/Button";
+import { signOut } from "~/utils/sign-out";
 
 type PlanId = "solo" | "team";
 type Billing = "monthly" | "annual";
@@ -323,7 +324,7 @@ export default function SelectPlanView() {
         </div>
       </div>
       {!hasExistingWorkspace && (
-        <Button variant="ghost" onClick={() => authClient.signOut()}>
+        <Button variant="ghost" onClick={() => void signOut()}>
           {t`Sign out`}
         </Button>
       )}
